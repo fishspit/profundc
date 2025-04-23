@@ -1,0 +1,18 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local venv created by pfdc.sh
+.venv-pfdc/
+.venv/
+
+# Editor/IDE
+.vscode/
+.idea/
+
