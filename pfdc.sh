@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pfdc.sh — one-time venv setup and launch wrapper for ProfunDC
+# pfdc.sh — bootstrap & enter ProfunDC virtualenv (best-practice auto-activate)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -7,7 +7,6 @@ VENV_DIR="$ROOT/.venv-pfdc"
 INIT_FLAG="$VENV_DIR/.initialized"
 PYTHON=${PYTHON:-python3}
 
-# Helpers
 have() { command -v "$1" &>/dev/null; }
 info() { printf '→ %s\n' "$*"; }
 err()  { printf '✖ %s\n' "$*" >&2; }
@@ -19,70 +18,68 @@ create_venv_and_install() {
         virtualenv "$VENV_DIR"
     fi
 
-    info "Activating virtual environment"
-    # shellcheck disable=SC1090
+    info "Installing Python dependencies"
+    # disable default prompt mangling
+    export VIRTUAL_ENV_DISABLE_PROMPT=0
+    export VIRTUAL_ENV_PROMPT="(pfdc) "
+    # activate, install, then deactivate
+    # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
-
-    info "Upgrading pip, setuptools, wheel"
     pip install --upgrade pip setuptools wheel
-
-    info "Installing ProfunDC package"
     if [[ -f "$ROOT/setup.py" || -f "$ROOT/pyproject.toml" ]]; then
         pip install -e "$ROOT"
     else
         pip install profundc
     fi
-
-    info "Writing pfdc shim"
-    cat > "$VENV_DIR/bin/pfdc" <<EOF
-#!/usr/bin/env bash
-exec "$VENV_DIR/bin/python" -m profundc.interfaces.cli "\$@"
-EOF
-    chmod +x "$VENV_DIR/bin/pfdc"
-
-    info "Writing custom bashrc for ProfunDC prompt"
-    cat > "$VENV_DIR/.pfdc.bashrc" <<EOF
-# ProfunDC custom interactive shell
-[ -f "\$HOME/.bashrc" ] && source "\$HOME/.bashrc"
-# Activate venv silently
-source "$VENV_DIR/bin/activate" > /dev/null 2>&1
-# Custom prompt: show venv name and current directory
-export PS1="(pfdc) \w \$ "
-EOF
+    deactivate
 
     touch "$INIT_FLAG"
-    info "Virtual environment bootstrap complete."
+    info "Virtual environment setup complete."
+}
+
+launch_shell() {
+    # Determine user’s shell
+    shell_name=$(basename "${SHELL:-bash}")
+    case "$shell_name" in
+        bash|zsh|ksh)
+            exec "$shell_name" -i -c "export VIRTUAL_ENV_DISABLE_PROMPT=0; export VIRTUAL_ENV_PROMPT='(pfdc) '; source '$VENV_DIR/bin/activate'; exec $shell_name"
+            ;;
+        fish)
+            exec fish -i -C "source '$VENV_DIR/bin/activate.fish'; exec fish"
+            ;;
+        *)
+            info "Unsupported shell '$shell_name'—falling back to sh"
+            exec sh -i -c "source '$VENV_DIR/bin/activate'; exec sh"
+            ;;
+    esac
 }
 
 main() {
     # 1) Check system dependencies
-    MISSING=0
+    local missing=0
     for cmd in tcpkill nsenter python3; do
         if ! have "$cmd"; then
             err "Missing system dependency: $cmd"
-            err "Please install the required packages as listed in the README before continuing."
-            MISSING=1
+            err "Please install it via your distro’s package manager before continuing."
+            missing=1
         fi
     done
-    [[ $MISSING -eq 1 ]] && exit 1
+    [[ $missing -eq 1 ]] && exit 1
 
-    # 2) First-time setup or activation
+    # 2) Bootstrap venv if needed
     if [[ ! -f "$INIT_FLAG" ]]; then
-        info "Performing first-time setup..."
+        info "First-time setup…"
         create_venv_and_install
     else
-        info "Activating existing virtual environment..."
-        # shellcheck disable=SC1090
-        source "$VENV_DIR/bin/activate"
+        info "Virtual environment already exists."
     fi
 
-    # 3) Launch custom interactive shell
+    # 3) Show quick help and enter venv shell
     echo
-    info "Launching pfdc (type 'exit' to leave)..."
-    pfdc -h | head -n 12
+    info "Launching ProfunDC shell (type 'exit' to return)..."
+    "$VENV_DIR/bin/pfdc" -h | head -n 10
     echo
-    echo "🟢 pfdc environment ready — type commands or 'exit' to leave"
-    exec bash --rcfile "$VENV_DIR/.pfdc.bashrc" -i
+    launch_shell
 }
 
 main "$@"
