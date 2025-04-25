@@ -6,7 +6,7 @@ import time
 import sys
 from pathlib import Path
 
-from profundc.core.monitor import get_hearthstone_pid, get_active_interface, report_error
+from profundc.core.monitor import get_hearthstone_pids, get_active_interface, report_error
 from profundc.services.game import get_active_game_ip
 
 SCRIPT = (
@@ -57,7 +57,7 @@ def start_disconnect(on_error=None):
     Initiate a quick network disconnect for Hearthstone by dropping one packet.
     Returns True on success, False on any failure.
     """
-    pid = get_hearthstone_pid()
+    pid = get_hearthstone_pids()
     if not pid:
         (on_error or report_error)("Hearthstone is not running.")
         return False
@@ -87,4 +87,4 @@ def start_disconnect(on_error=None):
     print("Hover over in-game assets to force packet request if not triggering")
 
     # Perform packet drop 
-    return _disconnect_script(pid, iface, server_ip, use_sudo)
+    return _disconnect_script(pid[0], iface, server_ip, use_sudo)

@@ -7,16 +7,19 @@ def report_error(msg):
     # "Default error hook—CLI or GUI can override this."
     print(f"[ERROR] {msg}")
 
-def get_hearthstone_pid():
+def get_hearthstone_pids():
     # "Return the PID of the Hearthstone process if running, else None."
+    hs_pids = []
     for proc in psutil.process_iter(['pid', 'name']):
         try:
             name = proc.info.get('name') or ""
             if "hearthstone.exe" in name.lower():
-                return proc.info['pid']
+                hs_pids.append(proc.info['pid'])
         except psutil.Error:
             continue
-    return None
+    if not hs_pids:
+        return None
+    return hs_pids
 
 def get_active_interface(settings=None):
     """

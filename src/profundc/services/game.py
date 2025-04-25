@@ -28,8 +28,8 @@ def get_active_game_ip():
     connection by Hearthstone. Returns the active IP string, or None.
     """
     # Find the Hearthstone process
-    pid = get_hearthstone_pid()
-    if not pid:
+    pids = get_hearthstone_pids()
+    if not pids:
         return None
 
     # Get all logged server IPs
@@ -38,4 +38,4 @@ def get_active_game_ip():
         return None
 
     # Check for an active connection matching any IP
-    return get_active_ip(ips, pid)
+    return get_active_ip(ips, pids[0])

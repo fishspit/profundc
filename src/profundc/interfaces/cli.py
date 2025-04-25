@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import argparse
-from profundc.core.monitor import get_hearthstone_pid, get_active_interface
+from profundc.core.monitor import get_hearthstone_pids, get_active_interface
 from profundc.services.game import get_all_logged_game_ips, get_active_game_ip
 from profundc.services.disconnect import start_disconnect
 from profundc.services.kill import kill_game
@@ -18,14 +18,20 @@ BANNER = r"""
 /_/          
 """
 
+pids = get_hearthstone_pids()
+
 def cmd_status(args):
     """Show current Hearthstone status: PID, interface, server IP."""
-    pid = get_hearthstone_pid() or "Can't detect Hearthstone"
-    iface = get_active_interface() or "Can't detect active network interface"
+    iface = get_active_interface() or "<none>"
     ips = get_all_logged_game_ips() or set()
     server = get_active_game_ip() or "<none>"
-
-    print(f"PID: {pid}")
+    if not pids:
+        print("PID: <not running>")
+    if pids:
+        if len(pids) > 1:
+            print(f"PID: {len(pids)} instances of Hearthstone found, close any extra instances or pfdc may not function.")
+        else:
+            print(f"PID: {pids[0]}")
     print(f"Interface: {iface}")
     if ips:
         print(f"IPs seen in log file: {', '.join(sorted(ips))}")
@@ -60,6 +66,9 @@ def cmd_ips(args):
 
 def cmd_active(args):
     """Print just the currently active server IP (if any)."""
+    if pids:
+        if len(pids) > 1:
+            print(f"{len(pids)} instances of Hearthstone found, close any extra instances and try again.")
     active_ip = get_active_game_ip()
     if active_ip:
         print(active_ip)
@@ -69,6 +78,10 @@ def cmd_active(args):
 
 def cmd_disconnect(args):
     """Drop one packet to force a quick reconnect."""
+    if pids:
+        if len(pids) > 1:
+            print(f"{len(pids)} instances of Hearthstone found, close any extra instances and try again.")
+            sys.exit(1)
     ok = start_disconnect(on_error=print)
     if ok:
         print("Disconnect triggered")
@@ -80,7 +93,7 @@ def cmd_kill(args):
     """Terminate the Hearthstone process."""
     ok = kill_game(on_error=print)
     if ok:
-        print("Hearthstone terminated.")
+        print("All instances of Hearthstone terminated.")
     sys.exit(0 if ok else 1)
 
 
